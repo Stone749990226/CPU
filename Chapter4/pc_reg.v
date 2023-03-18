@@ -1,3 +1,5 @@
+`include "defines.v"
+
 //PC功能:给出取指令地址,同时每个时钟周期取指令地址递增
 module pc_reg (
     input wire clk,
@@ -8,10 +10,16 @@ module pc_reg (
 
 always @(posedge clk) begin
     if (rst == `RstEnable) begin
-        ce <= 1'b0;
+        ce <= `ChipDisable;
     end
     else begin
-      ce <= 1'b1;
+      ce <= `ChipDisable;
+    end
+end
+
+always @(posedge clk) begin
+    if (ce == `ChipDisable) begin
+        pc <= 32'h00000000;
     end
 end
 
