@@ -9,17 +9,23 @@ module pc_reg (
 );
 
 always @(posedge clk) begin
+    //复位的时候指令存储器禁用
     if (rst == `RstEnable) begin
         ce <= `ChipDisable;
     end
+    //复位结束后,指令存储器使能
     else begin
       ce <= `ChipDisable;
     end
 end
 
 always @(posedge clk) begin
+    //指令存储器禁用的时候,PC=0
     if (ce == `ChipDisable) begin
         pc <= 32'h00000000;
+    end
+    else begin
+        pc<= pc +4'h4;
     end
 end
 
