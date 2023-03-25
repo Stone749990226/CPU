@@ -30,10 +30,6 @@
 `define ChipEnable 1'b1 
 `define ChipDisable 1'b0 
 
-//指令ori的指令码
-`define EXE_ORI 6'b001101 
-`define EXE_NOP 6'b000000 
-
 //AluOp
 `define EXE_OR_OP 8'b00100101
 `define EXE_NOP_OP 8'b00000000
@@ -69,3 +65,32 @@
 //寻址通用寄存器使用的地址位数
 `define RegNumLog2 5
 `define NOPRegAddr 5'b00000
+
+// 指令码（op）
+`define EXE_NOP			6'b000000		// 空操作
+`define EXE_ORI			6'b001101		// ori指令码
+`define EXE_ANDI		6'b001100		// andi
+`define EXE_XORI		6'b001110		// xori
+`define EXE_LUI			6'b001111		// lui
+
+// 功能码（op3）
+`define EXE_AND			6'b100100		// and指令
+`define EXE_OR			6'b100101		// or指令
+`define EXE_XOR			6'b100110		// xor指令
+`define EXE_NOR			6'b100111		// nor指令
+
+// 逻辑指令 逻辑左移、逻辑右移、算数右移（移动位数是指定的，为6~10位）
+`define EXE_SLL			6'b000000		// sll指令
+`define EXE_SRL  		6'b000010
+`define EXE_SRA			6'b000011
+
+// 移位指令，不指定移动位数，将rt寄存器中的值移动rs位，放到rd中。
+`define EXE_SLLV		6'b000100
+`define EXE_SRLV		6'b000110
+`define EXE_SRAV		6'b000111
+
+
+`define EXE_SYNC		6'b001111//sync指令的功能码
+`define EXE_PREF        6'b110011//pref指令的指令码
+
+`define EXE_SPECIAL_INST 6'b000000//SPECIAL类型指令的指令码
