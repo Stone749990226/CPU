@@ -75,7 +75,7 @@ always @(*) begin
 		wd_o <= inst_i[15:11];
 		wreg_o <= `WriteDisable;
 		
-		// InstVaild = 1，指令有效
+		// InstValid = 1，指令有效
 		instValid <= `InstValid;
 		
 		// 需不需要去读寄存器？
@@ -103,9 +103,10 @@ always @(*) begin
 								aluop_o <= `EXE_AND_OP;
 								alusel_o <= `EXE_RES_LOGIC;
 								wreg_o <= 1'b1;					//是否有要写入的目的寄存器
+								//and指令要读取rs,rt寄存器的值,所以设置reg1_read_o,reg2_read_o为1
 								reg1_read_o <= 1'b1;
 								reg2_read_o <= 1'b1;
-								instVaild <= `InstVaild;
+								instValid <= `InstValid;
 							end
 							`EXE_OR: begin						// or指令
 								aluop_o <= `EXE_OR_OP;			// 运算子类型
@@ -115,7 +116,7 @@ always @(*) begin
 								wreg_o <= 1'b1;					// 需要将结果写入的目的寄存器
 								reg1_read_o <= 1'b1;
 								reg2_read_o <= 1'b1;
-								instVaild <= `InstVaild;		
+								instValid <= `InstValid;		
 							end
 							`EXE_XOR: begin
 								aluop_o <= `EXE_XOR_OP;
@@ -123,7 +124,7 @@ always @(*) begin
 								wreg_o <= 1'b1;
 								reg1_read_o <= 1'b1;
 								reg2_read_o <= 1'b1;
-								instVaild <= `InstVaild;			// instVaild = 1'b1
+								instValid <= `InstValid;			// InstValid = 1'b1
 							end
 							`EXE_NOR: begin
 								aluop_o <= `EXE_NOR_OP;
@@ -131,6 +132,43 @@ always @(*) begin
 								wreg_o <= 1'b1;
 								reg1_read_o <= 1'b1;
 								reg2_read_o <= 1'b1;
+								instValid <= `InstValid;
+							end
+							// 移位指令，不指定移动位数，将rt寄存器中的值移动rs位，放到rd中。
+							`EXE_SLLV: begin
+								alusel_o <=	`EXE_RES_SHIFT;		// 运算类型
+								aluop_o <= `EXE_SLL_OP;			// 运算子类型
+								wreg_o <= 1'b1;					// 是否最后要写入目的寄存器		
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b1;
+								instVaild <= `InstVaild;	
+							end
+							`EXE_SRLV: begin
+								alusel_o <=	`EXE_RES_SHIFT;		
+								aluop_o <= `EXE_SRL_OP;			
+								wreg_o <= 1'b1;						
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b1;
+								instVaild <= `InstVaild;	
+							end
+							`EXE_SRAV: begin
+								alusel_o <=	`EXE_RES_SHIFT;		
+								aluop_o <= `EXE_SRA_OP;			
+								wreg_o <= 1'b1;						
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b1;
+								instVaild <= `InstVaild;
+							end
+							// 空指令 sync，是一种R型指令
+							`EXE_SYNC: begin
+								alusel_o <= `EXE_RES_NOP;
+								aluop_o <= `EXE_NOP_OP;
+								wreg_o <= 1'b0;
+								// 下面这两个比较难理解
+								// 端口1不读，端口2读。会执行下面的 reg1_o <= imm;，也就是立即数 32'h0000_0000 送到reg1_o，从而传给执行阶段的 reg1_i（源操作数1）。
+								reg1_read_o <= 1'b0;
+								reg2_read_o <= 1'b1;
+								// 传给执行阶段，但因为不让返回，所以执行阶段也没必要处理。
 								instVaild <= `InstVaild;
 							end
 						endcase
@@ -145,7 +183,7 @@ always @(*) begin
 				// 需要通过读一个寄存器，另一个是imm，控制使能
 				reg1_read_o <= 1'b1;
 				reg2_read_o <= 1'b0;
-				instVaild <= `InstVaild;			// 首先肯定是要写回的，修改下使能
+				instValid <= `InstValid;			// 首先肯定是要写回的，修改下使能
 				
 				// 因为ori指令需要用到立即数，所以才需要下面的两行
 				imm <= {16'h0, inst_i[15:0]};		// 立即数进行无符号扩展
@@ -155,11 +193,12 @@ always @(*) begin
 				alusel_o <= `EXE_RES_LOGIC;
 				aluop_o <= `EXE_AND_OP;		
 				wreg_o <= 1'b1;
+				//andi指令只需要读取rs寄存器的值,所以设置reg1_read_o的值为1,reg2_read_o的值为0,暗含使用立即数作为运算的操作数
 				reg1_read_o <= 1'b1;
 				reg2_read_o <= 1'b0;
 				imm <= {16'h0, inst_i[15:0]};
 				wd_o <= inst_i[20:16];
-				instVaild <= `InstVaild;
+				instValid <= `InstValid;
 			end
 			`EXE_XORI: begin
 				alusel_o <= `EXE_RES_LOGIC;
@@ -169,7 +208,7 @@ always @(*) begin
 				reg2_read_o <= 1'b0;
 				imm <= {16'h0, inst_i[15:0]};
 				wd_o <= inst_i[20:16];
-				instVaild <= `InstVaild;
+				instValid <= `InstValid;
 			end
 			`EXE_LUI: begin
 				alusel_o <= `EXE_RES_LOGIC;
@@ -179,9 +218,42 @@ always @(*) begin
 				reg2_read_o <= 1'b0;
 				imm <= {inst_i[15:0], 16'h0};
 				wd_o <= inst_i[20:16];
-				instVaild <= `InstVaild;
+				instValid <= `InstValid;
 			end
 		endcase
+		// 逻辑指令 逻辑左移、逻辑右移、算数右移（移动位数是指定的，为6~10位）
+		if (inst_i[31:21] == 11'b00000000000) begin
+			case (op3)
+				`EXE_SLL: begin
+					alusel_o <=	`EXE_RES_SHIFT;		// 运算类型
+					aluop_o <=	`EXE_SLL_OP;		// 运算子类型
+					wreg_o <= 1'b1;					// 需要写回寄存器
+					reg1_read_o <= 1'b0;			// 端口1是shamt，代表移动的位数，不需要从寄存器中读
+					reg2_read_o <= 1'b1;			// 源操作数rt，需要从端口2，从寄存器堆中读取
+					imm[4:0] <= inst_i[10:6];		// 移动的位数，最多5位（可以移动0-5位），注意哈，移动的位数可不是从寄存器堆中取得的，而是从指令的第6-10位取到的。
+					wd_o <=	inst_i[15:11];			// 需要写回的寄存器编号
+					instVaild <= `InstVaild;
+				end
+				`EXE_SRL: begin
+					alusel_o <=	`EXE_RES_SHIFT;		
+					aluop_o <=	`EXE_SRL_OP;		
+					wreg_o <= 1'b1;					
+					reg1_read_o <= 1'b0;			
+					reg2_read_o <= 1'b1;			
+					imm[4:0] <= inst_i[10:6];		
+					wd_o <=	inst_i[15:11];			
+				end
+				`EXE_SRA: begin
+					alusel_o <=	`EXE_RES_SHIFT;		
+					aluop_o <=	`EXE_SRA_OP;		
+					wreg_o <= 1'b1;					
+					reg1_read_o <= 1'b0;			
+					reg2_read_o <= 1'b1;			
+					imm[4:0] <= inst_i[10:6];		
+					wd_o <=	inst_i[15:11];
+				end
+			endcase
+		end
 	end
 end
 
@@ -199,7 +271,7 @@ always @ (*) begin
 		reg1_o <= `ZeroWord;
 	end else if ((reg1_read_o == 1'b1) && (ex_wreg_i == 1'b1) && (ex_wd_i == reg1_addr_o)) begin
 		reg1_o <= ex_wdata_i;
-	end else if ((reg1_read_o == 1'b1) && (mem_wreg_i == 1'b1) && (mew_wd_i == reg1_addr_o)) begin
+	end else if ((reg1_read_o == 1'b1) && (mem_wreg_i == 1'b1) && (mem_wd_i == reg1_addr_o)) begin
 		reg1_o <= mem_wdata_i;
 	end else if (reg1_read_o == 1'b1) begin
 		//Regfile读端口1的输出值
@@ -220,7 +292,7 @@ always @ (*) begin
 		reg2_o <= 1'b0;
 	end else if ((reg2_read_o == 1'b1) && (ex_wreg_i == 1'b1) && (ex_wd_i == reg2_addr_o)) begin
 		reg2_o <= ex_wdata_i;
-	end else if ((reg2_read_o == 1'b1) && (mem_wreg_i == 1'b1) && (mew_wd_i == reg2_addr_o)) begin
+	end else if ((reg2_read_o == 1'b1) && (mem_wreg_i == 1'b1) && (mem_wd_i == reg2_addr_o)) begin
 		reg2_o <= mem_wdata_i;
 	end else if (reg2_read_o == 1'b1) begin
         //Regfile读端口2的输出值

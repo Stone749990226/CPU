@@ -94,3 +94,9 @@
 `define EXE_PREF        6'b110011//pref指令的指令码
 
 `define EXE_SPECIAL_INST 6'b000000//SPECIAL类型指令的指令码
+
+`define EXE_AND_OP   	8'b00100100
+`define EXE_OR_OP    	8'b00100101
+`define EXE_XOR_OP  	8'b00100110
+`define EXE_NOR_OP  	8'b00100111
+`define EXE_LUI_OP  	8'b01011100 

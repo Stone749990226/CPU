@@ -25,10 +25,14 @@ module ex(
 
 // 这个变量专门用来保存逻辑运算的运算结果
 reg[31:0] logicout;
+// 这个变量专门用来保存移位运算的运算结果
+reg[31:0] shiftres;
 
 /**********************************************************
 ************	根据aluop指示的子类型进行运算	***************
 ***********************************************************/
+
+//进行逻辑运算
 always @ (*) begin
 	if (rst == `RstEnable) begin
 		logicout <= `ZeroWord;
@@ -38,12 +42,37 @@ always @ (*) begin
 			`EXE_OR_OP: begin
 				logicout <= reg1_i | reg2_i;
 			end
+			`EXE_AND_OP: begin
+				logicout <= reg1_i & reg2_i;
+			end
+			`EXE_NOR_OP: begin
+				logicout <= reg1_i ^ reg2_i;
+			end
 			default: begin
 				logicout <= `ZeroWord;
 			end
 		endcase
 	end
 end 
+
+//进行移位运算
+always @(*) begin
+	if(rst == `RstEnable) begin
+		shiftres <= `ZeroWord;
+	end else begin
+		case (aluop_i)
+			`EXE_SLL_OP: begin
+				shiftres <= reg2_i << reg1_i[4:0];
+			end
+			`EXE_SRL_OP: begin
+				shiftres <= reg2_i >> reg1_i[4:0];
+			end
+			`EXE_SRA_OP: begin
+				shiftres <= ({32{reg2_i[31]}}<<(6'd32-{1'b0,reg1_i[4:0]})) | reg2_i >> reg1_i[4:0];
+			end
+		endcase
+	end
+end
 
 /*************************************************************
 **	根据运算类型，其实就是看下需不需要将运算结果返回，再写回寄存器堆   **
