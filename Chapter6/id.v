@@ -2,8 +2,17 @@
 //ID模块的作用是对指令进行译码,得到最终运算的类型,子类型,源操作数1,源操作数2,要写入的目的寄存器地址等信息
 //ID中的电路都是组合逻辑电路,与Regfile模块有接口连接
 /* 新增功能
- * 1.将处于流水线执行阶段的指令的运算结果(包括是否要写目的寄存器wreg_o,要写的目的寄存器地址wd_o,要写入目的寄存器的数据wdata_o)等信息送到译码阶段
- * 2.将处于流水线访存阶段的指令的运算结果(包括是否要写目的寄存器wreg_o,要得的目的寄存器地址wd_o,要写入目的寄存器的数据wdata_o)等信息送到译码阶段
+ * 1.新增了movn,movz指令(不涉及特殊寄存器HI,LO)
+ * movn指令(move Conditional on Not Zero)用法:movn rd, rs, rt
+ * 指令作用:if rt != 0, then rd<-rs  判断地址为rt的通用寄存器的值,如果不为零,那么将地址为rs的通用寄存器的值赋值给地址为rd的通用寄存器
+ * 反之,保持地址为rd的通用寄存器不变.
+ * movz指令(move Conditional on Zero)用法:movz rd, rs, rt
+ * 指令作用:与movn相反
+ * 2.新增了mfhi,mflo,mthi,mtlo指令(涉及特殊寄存器HI,LO)
+ * mfhi rd:将特殊寄存器HI的值赋值给地址为rd的通用寄存器(move from)
+ * mflo rd:将特殊寄存器L0的值赋值给地址为rd的通用寄存器
+ * mthi rs:将地址为rs的通用寄存器的值赋值给特殊寄存器HI(move to)
+ * mtlo rs:将地址为rs的通用寄存器的值赋值给特殊寄存器lO(move to)
  */
 module id(
 	//下面信号中_i表示input,_o表示output

@@ -100,3 +100,7 @@
 `define EXE_XOR_OP  	8'b00100110
 `define EXE_NOR_OP  	8'b00100111
 `define EXE_LUI_OP  	8'b01011100 
+`define EXE_SLL_OP  	8'b01111100 
+`define EXE_SRL_OP  	8'b00000010
+`define EXE_SRA_OP		8'b00000011
+`define EXE_RES_SHIFT 	3'b010			// “∆Œª‘ÀÀ„
