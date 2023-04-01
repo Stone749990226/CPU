@@ -70,6 +70,9 @@ always @(*) begin
 			`EXE_SRA_OP: begin
 				shiftres <= ({32{reg2_i[31]}}<<(6'd32-{1'b0,reg1_i[4:0]})) | reg2_i >> reg1_i[4:0];
 			end
+			default :begin
+				shiftres <= `ZeroWord;
+			end	
 		endcase
 	end
 end
@@ -85,13 +88,15 @@ always @ (*) begin
 	// 回写数据
 	case (alusel_i)
 		`EXE_RES_LOGIC: begin
-			// 数据写回去
+			// 将逻辑运算作为最终结果
 			wdata_o <= logicout;
+		end
+		`EXE_RES_SHIFT: begin
+			wdata_o <= shiftres;
 		end
 		default: begin
 			wdata_o <= `ZeroWord;
 		end
 	endcase
-	
 end
 endmodule
