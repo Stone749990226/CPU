@@ -11,11 +11,18 @@ module mem(
 	input wire[4:0] wd_i,		// 要写回的目的寄存器地址
 	input wire wreg_i,			// 是否写回
 	input wire[31:0] wdata_i,	// 将写回的数据
-	
+
+	input wire[`RegBus] hi_i,
+	input wire[`RegBus] lo_i,
+	input wire whilo_i,
+
 	// 传给mem_wb模块            
 	output reg[4:0] wd_o,		//要写回的目的寄存器地址
 	output reg wreg_o,			//是否写回
-	output reg[31:0] wdata_o    //将写回的数据
+	output reg[31:0] wdata_o,    //将写回的数据
+	output reg[`RegBus] hi_o,
+	output reg[`RegBus] lo_o,
+	output reg whilo_o
 );
 
 always @ (*) begin
@@ -23,10 +30,16 @@ always @ (*) begin
 		wd_o <= `NOPRegAddr;	
 		wreg_o <= `WriteDisable;	
 		wdata_o <= `ZeroWord;
+		hi_o <= `ZeroWord;
+		lo_o <= `ZeroWord;
+		whilo_o <= `WriteDisable;
 	end else begin
 		wd_o <= wd_i;	
 		wreg_o <= wreg_i;	
 		wdata_o <= wdata_i;
+		hi_o <= hi_i;
+		lo_o <= lo_i;
+		whilo_o <= whilo_i;
 	end
 end
 

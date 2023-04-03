@@ -2,6 +2,7 @@
 //ID模块的作用是对指令进行译码,得到最终运算的类型,子类型,源操作数1,源操作数2,要写入的目的寄存器地址等信息
 //ID中的电路都是组合逻辑电路,与Regfile模块有接口连接
 /* 新增功能
+ * 一下六条指令都是special类型的
  * 1.新增了movn,movz指令(不涉及特殊寄存器HI,LO)
  * movn指令(move Conditional on Not Zero)用法:movn rd, rs, rt
  * 指令作用:if rt != 0, then rd<-rs  判断地址为rt的通用寄存器的值,如果不为零,那么将地址为rs的通用寄存器的值赋值给地址为rd的通用寄存器
@@ -103,7 +104,7 @@ always @(*) begin
 		case (op) 
 			`EXE_SPECIAL_INST: begin //指令码是SPECIAL
 				case (op2)
-					5'b0000: begin
+					5'b00000: begin
 						case (op3) //根据功能码判断是哪种指令
 							// R型指令
 							`EXE_AND: begin						// and指令
@@ -179,6 +180,60 @@ always @(*) begin
 								reg2_read_o <= 1'b1;
 								// 传给执行阶段，但因为不让返回，所以执行阶段也没必要处理。
 								instValid <= `InstValid;
+							end
+							`EXE_MFHI: begin
+								wreg_o <= `WriteEnable;
+								aluop_o <= `EXE_MFHI_OP;
+								alusel_o <= `EXE_RES_MOVE;
+								reg1_read_o <= 1'b0;
+								reg2_read_o <= 1'b0;
+								instValid <= `InstValid;
+							end
+							`EXE_MFLO:begin
+								wreg_o <= `WriteEnable;
+								aluop_o <= `EXE_MFLO_OP;
+								alusel_o <= `EXE_RES_MOVE;
+								reg1_read_o <= 1'b0;
+								reg2_read_o <= 1'b0;
+								instValid <= `InstValid;
+							end
+							`EXE_MTHI:begin
+								wreg_o <= `WriteDisable;
+								aluop_o <= `EXE_MTHI_OP;
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b0;
+								instValid <= `InstValid;
+							end
+							`EXE_MTLO:begin
+								wreg_o <= `WriteDisable;
+								aluop_o <= `EXE_MTLO_OP;
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b0;
+								instValid <= `InstValid;
+							end
+							`EXE_MOVN:begin
+								aluop_o <= `EXE_MOVN_OP;
+								alusel_o <= `EXE_RES_MOVE;
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b1;
+								instValid <= `InstValid;
+								if (reg2_o != `ZeroWord) begin //读取地址为rt的通用寄存器的值是否为0,判断是否要写入目的寄存器
+									wreg_o <= `WriteEnable;
+								end else begin
+									wreg_o <= `WriteDisable;
+								end
+							end
+							`EXE_MOVZ:begin
+								aluop_o <= `EXE_MOVZ_OP;
+								alusel_o <= `EXE_RES_MOVE;
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b1;
+								instValid <= `InstValid;
+								if (reg2_o == `ZeroWord) begin
+									wreg_o <= `WriteEnable;
+								end else begin
+									wreg_o <= `WriteDisable;
+								end
 							end
 						endcase
 					end
