@@ -94,37 +94,6 @@
 `define EXE_PREF        6'b110011//pref指令的指令码
 
 `define EXE_SPECIAL_INST 6'b000000//SPECIAL类型指令的指令码
-`define EXE_SPECIAL2_INST 6'b011100
-`define EXE_RES_ARITHMETIC  3'b100      // 算数操作指令
-`define EXE_REGIMM_INST 6'b000001
-
-// 移动操作指令
-`define EXE_MOVN		6'b001011
-`define EXE_MOVZ		6'b001010
-`define EXE_MFHI		6'b010000
-`define EXE_MFLO		6'b010010
-`define EXE_MTHI		6'b010001
-`define EXE_MTLO		6'b010011
-`define EXE_RES_MOVE	3'b011			// 移动操作指令
-`define EXE_RES_MUL 3'b101
-
-// 算数操作指令
-`define EXE_ADD         6'b100000
-`define EXE_ADDU        6'b100001
-`define EXE_SUB         6'b100010
-`define EXE_SUBU        6'b100011
-`define EXE_SLT         6'b101010
-`define EXE_SLTU        6'b101011
-`define EXE_CLZ         6'b100000
-`define EXE_CLO         6'b100001
-`define EXE_MUL         6'b000010
-`define EXE_MULT        6'b011000
-`define EXE_MULTU       6'b011001
-`define EXE_MADD  6'b000000
-`define EXE_MADDU  6'b000001
-`define EXE_MSUB  6'b000100
-`define EXE_MSUBU  6'b000101
-
 
 `define EXE_AND_OP   	8'b00100100
 `define EXE_OR_OP    	8'b00100101
@@ -142,41 +111,84 @@
 `define EXE_MFLO_OP		8'b00010010
 `define EXE_MTHI_OP		8'b00010001
 `define EXE_MTLO_OP		8'b00010011
+// 移动操作指令
+`define EXE_MOVN		6'b001011
+`define EXE_MOVZ		6'b001010
+`define EXE_MFHI		6'b010000
+`define EXE_MFLO		6'b010010
+`define EXE_MTHI		6'b010001
+`define EXE_MTLO		6'b010011
+`define EXE_RES_MOVE	3'b011			// 移动操作指令
+/*!
+ * EX/MEM模块
+ * 作用：暂存信息，等待时钟信号后将信息转发给MEM模块
+ * 只有一个时序逻辑电路,在时钟上升沿将执行阶段的结果传递到访存阶段
+*/
+`include "defines.v"
+module ex_mem(
+	input wire rst,
+	input wire clk,
+	
+	// 接收来自ex的信号
+	input wire[4:0] ex_wd,		// 要写回的目的寄存器地址
+	input wire ex_wreg,			// 是否写回
+	input wire[31:0] ex_wdata,	// 讲什么数据写回
 
-`define EXE_ADD_OP      8'b10000000
-`define EXE_ADDI_OP     8'b10000001
-`define EXE_ADDU_OP     8'b10000010
-`define EXE_SUB_OP      8'b10000011
-`define EXE_SUBU_OP     8'b10000100
-`define EXE_ADDIU_OP    8'b10000101
-`define EXE_SLT_OP      8'b10000110
-`define EXE_SLTU_OP     8'b10000111
-`define EXE_SLTI_OP     8'b10001000  
-`define EXE_SLTIU_OP    8'b10001001
-`define EXE_CLZ_OP      8'b10001010
-`define EXE_CLO_OP      8'b10001011
-`define EXE_MUL_OP      8'b10001100
-`define EXE_MULT_OP     8'b10001101
-`define EXE_MULTU_OP    8'b10001110
-`define EXE_MADD_OP     8'b10100110
-`define EXE_MADDU_OP    8'b10101000
-`define EXE_MSUB_OP     8'b10101010
-`define EXE_MSUBU_OP    8'b10101011
+	input wire[`RegBus] ex_hi,
+	input wire[`RegBus] ex_lo,
+	input wire ex_whilo,
 
-`define EXE_MADD_OP  8'b10100110
-`define EXE_MADDU_OP  8'b10101000
-`define EXE_MSUB_OP  8'b10101010
-`define EXE_MSUBU_OP  8'b10101011
+	input  wire [5:0] stall,
+	
+	input wire[`DoubleRegBus]     hilo_i,	//保存的乘法结果
+	input wire[1:0]               cnt_i,    //下一个时钟周期是执行阶段的第几个时钟周期
 
-// 下面是I指令的算数操作指令的操作符
-`define EXE_ADDI        6'b001000
-`define EXE_ADDIU       6'b001001
-`define EXE_SLTI        6'b001010
-`define EXE_SLTIU       6'b001011
+	// 转发信号到mem模块
+	output reg[4:0] mem_wd,		//访存阶段的指令要写入的目的寄存器地址
+	output reg mem_wreg,	    //访存阶段的指令要是否有要写入的目的寄存器
+	output reg[31:0] mem_wdata,  //访存阶段的指令要写入目的寄存器的值
+	output reg[`RegBus] mem_hi,
+	output reg[`RegBus] mem_lo,
+	output reg mem_whilo,
 
-//流水线暂停
-`define Stop 1'b1   
-//流水线继续         
-`define NoStop 1'b0
-`define InDelaySlot 1'b1
-`define NotInDelaySlot 1'b0
+	output reg[`DoubleRegBus]    hilo_o,  //保存的乘法结果
+	output reg[1:0]              cnt_o	  //当前处于执行阶段的第几个时钟周期
+);
+
+// 遇到上升沿时钟信号就将信号转发到mem模块
+always @ (posedge clk) begin
+	if (rst == `RstEnable) begin
+		mem_wd <= `NOPRegAddr;
+		mem_wreg <= `WriteDisable;
+		mem_wdata <= `ZeroWord;
+		mem_hi <= `ZeroWord;
+		mem_lo <= `ZeroWord;
+		mem_whilo <= `WriteDisable;
+		hilo_o <= {`ZeroWord, `ZeroWord};
+		cnt_o <= 2'b00;	
+	end else if(stall[3] == `Stop && stall[4] == `NoStop) begin //当stall[3]为Stop,stall[4]为NoStop时,表示执行阶段暂停,而访存阶段继续,所以使用空指令作为下一个周期进入访存阶段的指令
+		mem_wd <= `NOPRegAddr;
+		mem_wreg <= `WriteDisable;
+		mem_wdata <= `ZeroWord;
+		mem_hi <= `ZeroWord;
+		mem_lo <= `ZeroWord;
+		mem_whilo <= `WriteDisable;
+		hilo_o <= hilo_i;
+		cnt_o <= cnt_i;	
+	end else if (stall[3] == `NoStop) begin
+		mem_wd <= ex_wd;
+		mem_wreg <= ex_wreg;
+		mem_wdata <= ex_wdata;
+		mem_hi <= ex_hi;
+		mem_lo <= ex_lo;
+		mem_whilo <= ex_whilo;
+		hilo_o <= {`ZeroWord, `ZeroWord};
+		cnt_o <= 2'b00;
+	end else begin
+	    hilo_o <= hilo_i;
+		cnt_o <= cnt_i;											
+	end 
+
+end
+
+endmodule

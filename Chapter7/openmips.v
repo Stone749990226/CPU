@@ -55,9 +55,9 @@ module openmips(
 	wire[31:0] mem_wdata_i;
 
 	// MEM  -->  MEM/WB
-	wire mem_wreg_o;
-	wire[`RegAddrBus] mem_wd_o;
-	wire[`RegBus] mem_wdata_o;
+	wire[4:0] mem_wd_o;			
+	wire mem_wreg_o;		
+	wire[31:0] mem_wdata_o;
 	
 	// MEM/WB  -->  regfile
 	wire[4:0] wb_wd_i;			
@@ -73,6 +73,31 @@ module openmips(
 	wire[31:0]	reg1_data;
 	wire[31:0]	reg2_data;
 	
+	//第六章新增
+	// EX --> EX/MEM
+	wire ex_whilo_ex_mem;
+	wire [31:0] ex_hi_ex_mem;
+	wire [31:0] ex_lo_ex_mem;
+	// EX_MEM --> MEM
+	wire ex_mem_whilo_mem;
+	wire [31:0] ex_mem_hi_mem;
+	wire [31:0] ex_mem_lo_mem;
+	// MEM --> MEM_WB
+	wire mem_whilo_mem_wb;
+	wire [31:0] mem_hi_mem_wb;
+	wire [31:0] mem_lo_mem_wb;
+	// MEM/WB --> HILO
+	wire mem_wb_whilo_hilo;
+	wire [31:0] mem_wb_hi_hilo;
+	wire [31:0] mem_wb_lo_hilo;
+	// hi lo --> ex
+	wire[31:0] hilo_hi_ex;
+	wire[31:0] hilo_lo_ex;
+
+	wire[5:0] stall;
+	wire stallreq_from_id;	
+	wire stallreq_from_ex;
+
 
 /***********************************************************************************************/
 
@@ -94,6 +119,7 @@ module openmips(
 		.clk(clk),		 			 
         .rst(rst),		 		
         .if_pc(pc),
+		.stall(stall),
 		.if_inst(rom_data_i),		 
         .id_pc(id_pc_i),	 	
         .id_inst(id_inst_i)
@@ -143,7 +169,9 @@ module openmips(
         .wd_o(id_wd_o),		
 		.wreg_o(id_wreg_o),					
         .reg1_o(id_reg1_o),				
-        .reg2_o(id_reg2_o)		
+        .reg2_o(id_reg2_o),
+
+		.stallreq(stallreq_from_id)	
 	);
 
 
@@ -151,20 +179,25 @@ module openmips(
 /***********************************************************************************************/
 	
 	id_ex id_ex0(
-	.rst(rst),				
-	.clk(clk),					
-	.id_aluop(id_aluop_o),		
-	.id_alusel(id_alusel_o),		
-	.id_wd(id_wd_o),			
-	.id_wreg(id_wreg_o),		
-	.id_reg1(id_reg1_o),		
-	.id_reg2(id_reg2_o),		
-	.ex_aluop(ex_aluop_i),	
-	.ex_alusel(ex_alusel_i),	
-	.ex_wd(ex_wd_i),				
-	.ex_wreg(ex_wreg_i),			
-	.ex_reg1(ex_reg1_i),	
-	.ex_reg2(ex_reg2_i)	
+		.rst(rst),				
+		.clk(clk),		
+
+		.stall(stall),
+
+		//从译码阶段ID模块传递的信息
+		.id_aluop(id_aluop_o),		
+		.id_alusel(id_alusel_o),		
+		.id_wd(id_wd_o),			
+		.id_wreg(id_wreg_o),		
+		.id_reg1(id_reg1_o),		
+		.id_reg2(id_reg2_o),	
+		//传递到执行阶段EX模块的信息	
+		.ex_aluop(ex_aluop_i),	
+		.ex_alusel(ex_alusel_i),	
+		.ex_wd(ex_wd_i),				
+		.ex_wreg(ex_wreg_i),			
+		.ex_reg1(ex_reg1_i),	
+		.ex_reg2(ex_reg2_i)	
 );
 
 
@@ -172,7 +205,9 @@ module openmips(
 /***********************************************************************************************/
 
 	ex ex0(
-		.rst(rst),				
+		.rst(rst),	
+
+		//送到执行阶段EX模块的信息
 		.aluop_i(ex_aluop_i),		
 		.alusel_i(ex_alusel_i),		
 		.wd_i(ex_wd_i),		
@@ -181,7 +216,27 @@ module openmips(
 		.reg2_i(ex_reg2_i),			
 		.wd_o(ex_wd_o),		
 		.wreg_o(ex_wreg_o),		
-		.wdata_o(ex_wdata_o)
+		.wdata_o(ex_wdata_o),
+		// 下面是第六章EX模块新增的接口
+		.hi_i(hilo_hi_ex),				
+		.lo_i(hilo_lo_ex),				
+		.mem_whilo_i(mem_whilo_mem_wb),			
+		.mem_hi_i(mem_hi_mem_wb),			
+		.mem_lo_i(mem_lo_mem_wb),			
+		.wb_whilo_i(mem_wb_whilo_hilo),			
+		.wb_hi_i(mem_wb_hi_hilo),				
+		.wb_lo_i(mem_wb_lo_hilo),			
+		.whilo_o(ex_whilo_ex_mem),				
+		.hi_o(ex_hi_ex_mem),				
+		.lo_o(ex_lo_ex_mem),
+
+		.hilo_temp_i(hilo_temp_i),
+	  	.cnt_i(cnt_i),
+
+		.hilo_temp_o(hilo_temp_o),
+		.cnt_o(cnt_o),
+		
+		.stallreq(stallreq_from_ex) 
 	);
 
 /***********************************************************************************************/
@@ -195,7 +250,19 @@ module openmips(
 		.ex_wdata(ex_wdata_o),	
 		.mem_wd(mem_wd_i),		
 		.mem_wreg(mem_wreg_i),			
-		.mem_wdata(mem_wdata_i)
+		.mem_wdata(mem_wdata_i),
+		// 下面是第六章新增的接口
+		.ex_whilo(ex_whilo_ex_mem),		
+		.ex_hi(ex_hi_ex_mem),			
+		.ex_lo(ex_lo_ex_mem),			
+		.mem_whilo(ex_mem_whilo_mem),		
+		.mem_hi(ex_mem_hi_mem),			
+		.mem_lo(ex_mem_lo_mem),
+
+		.hilo_i(hilo_temp_o),
+		.cnt_i(cnt_o),	
+		.hilo_o(hilo_temp_i),
+		.cnt_o(cnt_i)
 	);
 
 /***********************************************************************************************/
@@ -206,10 +273,16 @@ module openmips(
 		.wd_i(mem_wd_i),				
 		.wreg_i(mem_wreg_i),			
 		.wdata_i(mem_wdata_i),	
-		//送到MEM/WB模块的信息
-		.wd_o(mem_wd_o),
-		.wreg_o(mem_wreg_o),
-		.wdata_o(mem_wdata_o) 
+		.wd_o(mem_wd_o),		
+		.wreg_o(mem_wreg_o),			
+		.wdata_o(mem_wdata_o),
+		// 下面是第六章新增的接口
+		.whilo_i(ex_mem_whilo_mem),		
+		.hi_i(ex_mem_hi_mem),			
+		.lo_i(ex_mem_lo_mem),				
+		.whilo_o(mem_whilo_mem_wb),		
+		.hi_o(mem_hi_mem_wb),			
+		.lo_o(mem_lo_mem_wb)
 	);
 
 /***********************************************************************************************/
@@ -219,16 +292,32 @@ module openmips(
 	mem_wb mem_wb0(
 		.rst(rst),					
 		.clk(clk),				
-		//来自访存阶段MEM模块的信息	
-		.mem_wd(mem_wd_o),
-		.mem_wreg(mem_wreg_o),
-		.mem_wdata(mem_wdata_o),
-		//送到回写阶段的信息
+		.mem_wd(mem_wd_o),			
+		.mem_wreg(mem_wreg_o),				
+		.mem_wdata(mem_wdata_o),	
 		.wb_wd(wb_wd_i),			
 		.wb_wreg(wb_wreg_i),		
-		.wb_wdata(wb_wdata_i)	
+		.wb_wdata(wb_wdata_i),
+		// 下面是第六章新增的接口
+		.mem_whilo(mem_whilo_mem_wb),	
+		.mem_hi(mem_hi_mem_wb),		
+		.mem_lo(mem_lo_mem_wb),		
+		.wb_whilo(mem_wb_whilo_hilo),	
+		.wb_hi(mem_wb_hi_hilo),		
+		.wb_lo(mem_wb_lo_hilo)
 	);
 
+
+	// 下面是第六章新增的，特殊寄存器HI和LO的接口
+	hilo_reg hilo_reg0(
+		.rst(rst),		
+		.clk(clk),
+		.we(mem_wb_whilo_hilo),		
+		.hi_i(mem_wb_hi_hilo),	
+		.lo_i(mem_wb_lo_hilo),	
+		.hi_o(hilo_hi_ex),	
+		.lo_o(hilo_lo_ex)
+	);
 /***********************************************************************************************/
 
 endmodule

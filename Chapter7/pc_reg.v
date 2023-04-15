@@ -4,6 +4,10 @@
 module pc_reg (
     input wire clk,
     input wire rst,
+
+    //第七章新增:来自控制模块CTRL
+    input  wire [5:0] stall,
+
     output reg[`InstAddrBus] pc, //InstAddrBus为ROM的地址总线宽度
     output reg ce //指令存储器使能信号
 );
@@ -23,8 +27,7 @@ always @(posedge clk) begin
     //指令存储器禁用的时候,PC=0
     if (ce == `ChipDisable) begin
         pc <= 32'h00000000;
-    end
-    else begin
+    end else if(stall[0] == `NoStop) begin
         pc<= pc +4'h4;
     end
 end

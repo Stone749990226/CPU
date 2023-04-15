@@ -48,21 +48,31 @@ module openmips(
 	wire[4:0] ex_wd_o;		// 要写回的目的寄存器地址
 	wire ex_wreg_o;			// 是否写回
 	wire[31:0] ex_wdata_o;	// 将什么数据写回
+	wire[`RegBus] ex_hi_o;
+	wire[`RegBus] ex_lo_o;
+	wire ex_whilo_o;
 	
 	// EX/MEM  -->  MEM
 	wire[4:0] mem_wd_i;		
 	wire mem_wreg_i;		
 	wire[31:0] mem_wdata_i;
+	wire[`RegBus] mem_hi_i;
+	wire[`RegBus] mem_lo_i;
+	wire mem_whilo_i;	
 
 	// MEM  -->  MEM/WB
-	wire[4:0] wb_wd_o;			
-	wire wb_wreg_o;		
-	wire[31:0] wb_wdata_o;
-	
+	wire[4:0] mem_wd_o;			
+	wire mem_wreg_o;		
+	wire[31:0] mem_wdata_o;
+
+
 	// MEM/WB  -->  regfile
 	wire[4:0] wb_wd_i;			
 	wire wb_wreg_i;			
 	wire[31:0] wb_wdata_i;
+	wire[`RegBus] wb_hi_i;
+	wire[`RegBus] wb_lo_i;
+	wire wb_whilo_i;	
 
 	// ID --> regfile
 	wire[4:0]	reg2_addr;
@@ -144,6 +154,14 @@ module openmips(
         //来自Regfile的输入		
         .reg1_data_i(reg1_data),
 		.reg2_data_i(reg2_data),	
+		//处于执行阶段的指令要写入的目的寄存器信息
+		.ex_wreg_i(ex_wreg_o),
+		.ex_wdata_i(ex_wdata_o),
+		.ex_wd_i(ex_wd_o),
+		//处于访存阶段的指令要写入的目的寄存器信息
+		.mem_wreg_i(mem_wreg_o),
+		.mem_wdata_i(mem_wdata_o),
+		.mem_wd_i(mem_wd_o),
         //送到Regfile模块的信息	
         .reg1_addr_o(reg1_addr),
         .reg1_read_o(reg1_read),
@@ -237,9 +255,9 @@ module openmips(
 		.wd_i(mem_wd_i),				
 		.wreg_i(mem_wreg_i),			
 		.wdata_i(mem_wdata_i),	
-		.wd_o(wb_wd_o),		
-		.wreg_o(wb_wreg_o),			
-		.wdata_o(wb_wdata_o),
+		.wd_o(mem_wd_o),		
+		.wreg_o(mem_wreg_o),			
+		.wdata_o(mem_wdata_o),
 		// 下面是第六章新增的接口
 		.whilo_i(ex_mem_whilo_mem),		
 		.hi_i(ex_mem_hi_mem),			
@@ -256,9 +274,9 @@ module openmips(
 	mem_wb mem_wb0(
 		.rst(rst),					
 		.clk(clk),				
-		.mem_wd(wb_wd_o),			
-		.mem_wreg(wb_wreg_o),				
-		.mem_wdata(wb_wdata_o),	
+		.mem_wd(mem_wd_o),			
+		.mem_wreg(mem_wreg_o),				
+		.mem_wdata(mem_wdata_o),	
 		.wb_wd(wb_wd_i),			
 		.wb_wreg(wb_wreg_i),		
 		.wb_wdata(wb_wdata_i),

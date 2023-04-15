@@ -80,8 +80,8 @@ always @(*) begin
 		
 		// 需不需要去读寄存器？
 		// 这里显然不需要，因为ori指令是对immediate操作的
-		reg1_o <= 1'b0;
-		reg2_o <= 1'b0;
+		reg1_read_o <= 1'b0;
+		reg2_read_o <= 1'b0;
 		
 		// 要通过指令去寄存器取值
 		reg1_addr_o <= inst_i[25:21];//默认通过Regfile读端口1读取的寄存器地址

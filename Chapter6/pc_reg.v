@@ -15,7 +15,7 @@ always @(posedge clk) begin
     end
     //复位结束后,指令存储器使能
     else begin
-      ce <= `ChipDisable;
+      ce <= `ChipEnable;
     end
 end
 
