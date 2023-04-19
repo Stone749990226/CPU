@@ -36,8 +36,12 @@
 
 //AluSel
 `define EXE_RES_LOGIC 3'b001
-
+`define EXE_RES_JUMP_BRANCH 3'b110
 `define EXE_RES_NOP 3'b000
+`define EXE_RES_ARITHMETIC  3'b100      // 算数操作指令
+`define EXE_RES_MOVE	3'b011			// 移动操作指令
+`define EXE_RES_MUL 3'b101
+`define EXE_RES_SHIFT 	3'b010			// 移位运算
 
 //**********与指令存储器ROM有关的宏定义**********
 //ROM的地址总线宽度
@@ -95,7 +99,6 @@
 
 `define EXE_SPECIAL_INST 6'b000000//SPECIAL类型指令的指令码
 `define EXE_SPECIAL2_INST 6'b011100
-`define EXE_RES_ARITHMETIC  3'b100      // 算数操作指令
 `define EXE_REGIMM_INST 6'b000001
 
 // 移动操作指令
@@ -105,8 +108,7 @@
 `define EXE_MFLO		6'b010010
 `define EXE_MTHI		6'b010001
 `define EXE_MTLO		6'b010011
-`define EXE_RES_MOVE	3'b011			// 移动操作指令
-`define EXE_RES_MUL 3'b101
+
 
 // 算数操作指令
 `define EXE_ADD         6'b100000
@@ -125,6 +127,19 @@
 `define EXE_MSUB  6'b000100
 `define EXE_MSUBU  6'b000101
 
+//第八章:分支指令
+`define EXE_J  6'b000010
+`define EXE_JAL  6'b000011
+`define EXE_JALR  6'b001001
+`define EXE_JR  6'b001000
+`define EXE_BEQ  6'b000100
+`define EXE_BGEZ  5'b00001
+`define EXE_BGEZAL  5'b10001
+`define EXE_BGTZ  6'b000111
+`define EXE_BLEZ  6'b000110
+`define EXE_BLTZ  5'b00000
+`define EXE_BLTZAL  5'b10000
+`define EXE_BNE  6'b000101
 
 `define EXE_AND_OP   	8'b00100100
 `define EXE_OR_OP    	8'b00100101
@@ -134,7 +149,7 @@
 `define EXE_SLL_OP  	8'b01111100 
 `define EXE_SRL_OP  	8'b00000010
 `define EXE_SRA_OP		8'b00000011
-`define EXE_RES_SHIFT 	3'b010			// 移位运算
+
 // 移动操作指令
 `define EXE_MOVN_OP		8'b00001011
 `define EXE_MOVZ_OP		8'b00001010
@@ -158,11 +173,28 @@
 `define EXE_MUL_OP      8'b10001100
 `define EXE_MULT_OP     8'b10001101
 `define EXE_MULTU_OP    8'b10001110
+`define EXE_MADD_OP     8'b10100110
+`define EXE_MADDU_OP    8'b10101000
+`define EXE_MSUB_OP     8'b10101010
+`define EXE_MSUBU_OP    8'b10101011
 
 `define EXE_MADD_OP  8'b10100110
 `define EXE_MADDU_OP  8'b10101000
 `define EXE_MSUB_OP  8'b10101010
 `define EXE_MSUBU_OP  8'b10101011
+
+`define EXE_J_OP  8'b01001111
+`define EXE_JAL_OP  8'b01010000
+`define EXE_JALR_OP  8'b00001001
+`define EXE_JR_OP  8'b00001000
+`define EXE_BEQ_OP  8'b01010001
+`define EXE_BGEZ_OP  8'b01000001
+`define EXE_BGEZAL_OP  8'b01001011
+`define EXE_BGTZ_OP  8'b01010100
+`define EXE_BLEZ_OP  8'b01010011
+`define EXE_BLTZ_OP  8'b01000000
+`define EXE_BLTZAL_OP  8'b01001010
+`define EXE_BNE_OP  8'b01010010
 
 // 下面是I指令的算数操作指令的操作符
 `define EXE_ADDI        6'b001000
@@ -176,6 +208,14 @@
 `define NoStop 1'b0
 `define InDelaySlot 1'b1
 `define NotInDelaySlot 1'b0
+
+//第八章新增
+`define Branch 1'b1
+`define NotBranch 1'b0
+`define InterruptAssert 1'b1
+`define InterruptNotAssert 1'b0
+`define TrapAssert 1'b1
+`define TrapNotAssert 1'b0
 `include "defines.v"
 //ID模块的作用是对指令进行译码,得到最终运算的类型,子类型,源操作数1,源操作数2,要写入的目的寄存器地址等信息
 //ID中的电路都是组合逻辑电路,与Regfile模块有接口连接
@@ -209,6 +249,28 @@
  * 执行阶段EX模块的输出cnt_o表示当前是第几个时钟周期,传递到EX/MEM模块,并在下一个时钟周期送回EX模块,后者据此判断当前处于乘累加/乘累减指令的第几个执行周期
  *
  * 并未实现除法指令
+ *
+ * Chapter8新增功能:转移指令的实现
+ * jr指令: SPECIAL rs 00000 00000 00000 JR(001000)
+ * 用法:jr rs 作用:pc <- rs将地址为rs的通用寄存器的值赋值给寄存器PC作为新的指令地址
+ * jalr指令: SPECIAL rs 00000 rd 00000 JALR(001001)
+ * 用法:jalr rs 或者jalr rd, rs 作用:rd <- return_address, pc <- rs将地址为rs的通用寄存器的值赋值给寄存器PC作为新的指令地址,
+ * 同时将跳转指令后面的第二条指令的地址作为返回地址保存到地址为rd的通用寄存器,如果没有在指令中致命rd,那么默认将返回地址保存到$31
+ * j指令:J(000010) instr_index
+ * 用法:j target 作用:pc <- (pc+4)[31,28] || target || "00",转移到新的指令地址,其中新指令地址的低28位是跳转指令后面延迟槽指令的地址高4位
+ * JAL指令:JAL(000011) instr_index
+ * 用法:j target 作用:pc <- (pc+4)[31,28] || target || "00",转移到新的地址指令,新指令地址与指令j相同.但是,指令jal还要将跳转指令后面第2条指令的地址作为返回地址保存到寄存器$31
+ * j, jal, jr, jalr指令在转移前都要先执行延迟槽指令
+ * bgtz指令:
+ * 用法:bgtz rs, offset 作用:if rs > 0 then branch,如果地址为rs的通用寄存器的值大于0,那么发生转移
+ * blez指令:
+ * 用法:blez rs, offset 作用:if rs <= 0 then branck,如果地址为rs的通用寄存器的值小于等于0,那么发生转移
+ * bne指令: bne rs, rt, offset
+ * 
+ * 在译码阶段多了转移判断,此时PC的取址变为三种情况
+ * 1. PC=PC+4
+ * 2. PC保持不变.当流水线暂停的时候就会发生
+ * 3. PC等于转移判断的结果
  */
 module id(
 	//下面信号中_i表示input,_o表示output
@@ -241,7 +303,20 @@ module id(
     output reg [`RegBus] reg2_o,
     output reg [`RegAddrBus] wd_o, //译码阶段的指令要写入的目的寄存器地址
     output reg   wreg_o, //译码阶段的指令是否有要写入的目的寄存器
-	output wire  stallreq	
+	output wire  stallreq,
+
+	//第八章新增功能
+	//如果处于译码阶段的指令是转移指令并满足转移条件,设置标志位为Branch,同时通过branch_target_address_o接口给出转移目的地址,送到PC模块,后者据此修改取指地址
+	output reg                    branch_flag_o,
+	output reg[`RegBus]           branch_target_address_o,
+	//如果处于译码阶段的失灵是转移指令并满足转移条件,那么ID模块还会设置next_inst_in_delayslot_o为InDelaySlot,表示下一条指令是延迟槽指令,其中InDelaySlot是一个宏定义
+	//next_inst_in_delayslot_o信号会送入ID/EX模块,并在下一个时钟周期通过ID/EX模块的is_in_delayslot_o接口送回到ID模块,ID模块据此判断当前处于译码阶段的指令是否是延迟槽指令   
+	output reg                    is_in_delayslot_o,
+	output reg                    next_inst_in_delayslot_o,//下一条进入译码阶段的指令是否位于延迟槽
+	//如果转移指令需要保存返回地址,那么ID模块还要计算返回地址,并通过link_addr_o接口输出,该值最终会传递到EX模块,作为要写入目的寄存器的值
+	output reg[`RegBus]           link_addr_o,
+	//当前处于译码阶段的指令是否位于延迟槽
+	input  wire is_in_delayslot_i 
 );
 
 //取得指令的指令码,功能码
@@ -256,6 +331,17 @@ reg[`RegBus] imm;
 reg instValid;
 
 assign stallreq = `NoStop;
+
+//第八章新增
+wire[`RegBus] pc_plus_8;
+wire[`RegBus] pc_plus_4;
+
+assign pc_plus_8 = pc_i+8; //保存当前译码阶段指令后面第2条指令的地址
+assign pc_plus_4 = pc_i+4; //保存当前译码阶段指令后面紧接着的指令的地址
+
+wire[`RegBus] imm_sll2_signedext;
+assign imm_sll2_signedext = {{14{inst_i[15]}}, inst_i[15:0], 2'b00};
+
 
 //*****对指令进行译码*****
 //对于ori指令而言,只需识别26-32bit的指令码是否为6'b001101即可判断是否为ori指令
@@ -272,7 +358,10 @@ always @(*) begin
 		reg1_read_o <= 1'b0;
 		reg2_addr_o <= `NOPRegAddr;
 		reg2_read_o <= 1'b0;
-		
+		link_addr_o <= `ZeroWord;
+		branch_target_address_o <= `ZeroWord;
+		branch_flag_o <= `NotBranch;	
+		next_inst_in_delayslot_o <= `NotInDelaySlot; 
 	// 正常情况下，下面的是默认运算
 	end else begin
 		// 操作子类型和操作类型
@@ -295,6 +384,11 @@ always @(*) begin
 		reg2_addr_o <= inst_i[20:16];//默认通过Regfile读端口2读取的寄存器地址
 		
 		imm <= `ZeroWord;
+
+		link_addr_o <= `ZeroWord;
+		branch_target_address_o <= `ZeroWord;
+		branch_flag_o <= `NotBranch;	
+		next_inst_in_delayslot_o <= `NotInDelaySlot; 
 		/*首先根据指令码op进行判断,如果是SPECIAL类指令,再判断指令的第6-10bit即op2是否为0,如果为0,再依据功能码op3的值进行最终判断
 		 *如果指令码op不为SEPECIAL,那么就直接依据指令码op的值进行判断
 		**/
@@ -503,6 +597,43 @@ always @(*) begin
                                 reg2_read_o <= 1'b1;
                                 instValid <= `InstValid;
                             end
+							`EXE_JR: begin
+								//jr指令不需要保存返回地址
+								wreg_o <= `WriteDisable;
+								//设置返回地址为0
+								link_addr_o <= `ZeroWord;
+								//疑问:书上这里写的是EXE_NOP_OP和EXE_RES_NOP?		
+								aluop_o <= `EXE_JR_OP;
+		  						alusel_o <= `EXE_RES_JUMP_BRANCH;   
+								reg1_read_o <= 1'b1;
+								reg2_read_o <= 1'b0;
+			            		branch_target_address_o <= reg1_o;
+								//jr指令是绝对转移,所以设置branch_flag_o为Branch
+			            		branch_flag_o <= `Branch;
+								//下一条指令是延迟槽指令
+			            		next_inst_in_delayslot_o <= `InDelaySlot;
+			            		instValid <= `InstValid;	
+							end
+							`EXE_JALR: begin
+								//jalr指令需要保存返回地址
+								wreg_o <= `WriteEnable;	
+								//设置返回地址link_addr_o为当前转移指令后面第二条指令的地址,即pc_plus_8
+								link_addr_o <= pc_plus_8;	
+								aluop_o <= `EXE_JALR_OP;
+		  						alusel_o <= `EXE_RES_JUMP_BRANCH;  
+								//jalr指令要转移到的目标地址是通用寄存器rs的值,所以需要设置reg1_read_o为1,读取的寄存器地址正是指令中的rs 
+								reg1_read_o <= 1'b1;	
+								reg2_read_o <= 1'b0;
+								//设置要写的目的寄存器地址wd_o为rd,即指令的第11~15bit
+		  						wd_o <= inst_i[15:11];
+								//jalr指令是绝对转移,所以设置branch_flag_o为Branch
+			            		branch_flag_o <= `Branch;
+								//设置转移目的地址branch_target_address_o为reg1_o,也即读出来的通用寄存器rs的值
+								branch_target_address_o <= reg1_o;
+								//下一条指令是延迟槽指令
+			            		next_inst_in_delayslot_o <= `InDelaySlot;
+			            		instValid <= `InstValid;	
+							end
 							default: begin
 							end
 						endcase
@@ -655,6 +786,123 @@ always @(*) begin
                 wd_o <= inst_i[20:16];
                 instValid <= `InstValid;
             end
+			`EXE_J:	begin
+				//与jr类似,只是转移目标地址不再是通用寄存器的值,多以不需要读取通用寄存器,设置reg1_read_o为0
+		  		wreg_o <= `WriteDisable;		
+				aluop_o <= `EXE_J_OP;
+		  		alusel_o <= `EXE_RES_JUMP_BRANCH; 
+				reg1_read_o <= 1'b0;	
+				reg2_read_o <= 1'b0;
+		  		link_addr_o <= `ZeroWord;
+				//转移目标地址如下
+			    branch_target_address_o <= {pc_plus_4[31:28], inst_i[25:0], 2'b00};
+			    branch_flag_o <= `Branch;
+			    next_inst_in_delayslot_o <= `InDelaySlot;		  	
+			    instValid <= `InstValid;	
+				end
+			`EXE_JAL: begin
+				//与jalr类似,只是jal指令将返回地址写到寄存器$31中,所以wd_o直接设置为5'b11111,另外,转移目标地址不再是通用寄存器的值,所以不需要读取通用寄存器,设置reg1_read_o为0
+				wreg_o <= `WriteEnable;		
+				aluop_o <= `EXE_JAL_OP;
+				alusel_o <= `EXE_RES_JUMP_BRANCH; 
+				reg1_read_o <= 1'b0;	
+				reg2_read_o <= 1'b0;
+				wd_o <= 5'b11111;	
+				link_addr_o <= pc_plus_8 ;
+				branch_target_address_o <= {pc_plus_4[31:28], inst_i[25:0], 2'b00};
+				branch_flag_o <= `Branch;
+				next_inst_in_delayslot_o <= `InDelaySlot;		  	
+				instValid <= `InstValid;	
+			end
+			`EXE_BEQ: begin
+				//beq指令不需要保存返回地址,所以设置wreg_o为WriteDisable
+				wreg_o <= `WriteDisable;		
+				aluop_o <= `EXE_BEQ_OP;
+				alusel_o <= `EXE_RES_JUMP_BRANCH;
+				//beq转移的条件是两个通用寄存器的值相等,所以需要读取两个通用寄存器 ,最终译码阶段的输出reg1_o就是地址为rs的寄存器的值,reg2_o就是地址为rt的寄存器的值
+				reg1_read_o <= 1'b1;	
+				reg2_read_o <= 1'b1;
+				instValid <= `InstValid;	
+				//如果读取的两个通用寄存器的值相等,那么转移发生,设置branch_flag_o为Branch,同时设置转移目的地址branch_target_address_o为pc_plus_4 + imm_sll2_signedext
+				if(reg1_o == reg2_o) begin
+					branch_target_address_o <= pc_plus_4 + imm_sll2_signedext;
+					branch_flag_o <= `Branch;
+					//下一条指令是延迟槽指令
+					next_inst_in_delayslot_o <= `InDelaySlot;		  	
+				end
+			end
+			`EXE_BNE: begin
+				//与beq类似,只是转移条件是两个通用寄存器的值不相等
+				wreg_o <= `WriteDisable;		
+				aluop_o <= `EXE_BLEZ_OP;
+				alusel_o <= `EXE_RES_JUMP_BRANCH;
+				reg1_read_o <= 1'b1;	
+				reg2_read_o <= 1'b1;
+				instValid <= `InstValid;	
+				if(reg1_o != reg2_o) begin
+					branch_target_address_o <= pc_plus_4 + imm_sll2_signedext;
+					branch_flag_o <= `Branch;
+					next_inst_in_delayslot_o <= `InDelaySlot;		  	
+				end
+			end
+			`EXE_BGTZ: begin
+				//不需要保存返回地址
+				wreg_o <= `WriteDisable;		
+				aluop_o <= `EXE_BGTZ_OP;
+				alusel_o <= `EXE_RES_JUMP_BRANCH;
+				instValid <= `InstValid;	
+				//转移的条件是地址为rs的通用寄存器的值大于0,所以需要设置reg1_read_o为1
+				reg1_read_o <= 1'b1;	
+				reg2_read_o <= 1'b0;
+				if((reg1_o[31] == 1'b0) && (reg1_o != `ZeroWord)) begin
+					branch_target_address_o <= pc_plus_4 + imm_sll2_signedext;
+					branch_flag_o <= `Branch;
+					next_inst_in_delayslot_o <= `InDelaySlot;		  	
+				end
+			end
+			`EXE_BLEZ: begin
+				wreg_o <= `WriteDisable;		
+				aluop_o <= `EXE_BLEZ_OP;
+				alusel_o <= `EXE_RES_JUMP_BRANCH; 
+				reg1_read_o <= 1'b1;	
+				reg2_read_o <= 1'b0;
+				instValid <= `InstValid;	
+				if((reg1_o[31] == 1'b1) || (reg1_o == `ZeroWord)) begin
+					branch_target_address_o <= pc_plus_4 + imm_sll2_signedext;
+					branch_flag_o <= `Branch;
+					next_inst_in_delayslot_o <= `InDelaySlot;		  	
+				end
+			end
+			`EXE_REGIMM_INST: begin
+				case (op4)
+					`EXE_BGEZ: begin
+						wreg_o <= `WriteDisable;		
+						aluop_o <= `EXE_BGEZ_OP;
+		  				alusel_o <= `EXE_RES_JUMP_BRANCH; 
+						reg1_read_o <= 1'b1;	
+						reg2_read_o <= 1'b0;
+		  				instValid <= `InstValid;	
+		  				if(reg1_o[31] == 1'b0) begin
+			    			branch_target_address_o <= pc_plus_4 + imm_sll2_signedext;
+			    			branch_flag_o <= `Branch;
+			    			next_inst_in_delayslot_o <= `InDelaySlot;		  	
+			   			end
+					end
+					`EXE_BLTZ: begin
+						wreg_o <= `WriteDisable;		
+						aluop_o <= `EXE_BGEZAL_OP;
+		  				alusel_o <= `EXE_RES_JUMP_BRANCH; 
+						reg1_read_o <= 1'b1;	
+						reg2_read_o <= 1'b0;
+		  				instValid <= `InstValid;	
+		  				if(reg1_o[31] == 1'b1) begin
+			    			branch_target_address_o <= pc_plus_4 + imm_sll2_signedext;
+			    			branch_flag_o <= `Branch;
+			    			next_inst_in_delayslot_o <= `InDelaySlot;		  	
+			   			end
+					end
+				endcase
+			end
 			`EXE_SLTI: begin //slti rt, rs, immediate作用:rt <- (rs<(sign_extended)immediate)
 			//将指令中的16为立即数进行符号扩展,与地址为rs的通用寄存器的值按照有符号数进行比较
 			//如果前者大于后者,那么将1保存到地址为rt的通用寄存器中;反之将0保存到地址为rt的通用寄存器中
@@ -763,5 +1011,17 @@ always @ (*) begin
 	end
 end
 
+/***********************************************************************************
+*********	第八章新增:输出变量is_in_delayslot表示当前译码阶段指令是否是延迟槽指令	*********
+************************************************************************************/
+
+always @(*) begin
+	if(rst==`RstEnable) begin
+		is_in_delayslot_o <= `NotInDelaySlot;
+	end else begin
+		//直接等于is_in_delayslot_i
+		is_in_delayslot_o <= is_in_delayslot_i;
+	end
+end
 
 endmodule

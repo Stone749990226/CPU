@@ -36,8 +36,12 @@
 
 //AluSel
 `define EXE_RES_LOGIC 3'b001
-
+`define EXE_RES_JUMP_BRANCH 3'b110
 `define EXE_RES_NOP 3'b000
+`define EXE_RES_ARITHMETIC  3'b100      // 算数操作指令
+`define EXE_RES_MOVE	3'b011			// 移动操作指令
+`define EXE_RES_MUL 3'b101
+`define EXE_RES_SHIFT 	3'b010			// 移位运算
 
 //**********与指令存储器ROM有关的宏定义**********
 //ROM的地址总线宽度
@@ -95,7 +99,6 @@
 
 `define EXE_SPECIAL_INST 6'b000000//SPECIAL类型指令的指令码
 `define EXE_SPECIAL2_INST 6'b011100
-`define EXE_RES_ARITHMETIC  3'b100      // 算数操作指令
 `define EXE_REGIMM_INST 6'b000001
 
 // 移动操作指令
@@ -105,8 +108,7 @@
 `define EXE_MFLO		6'b010010
 `define EXE_MTHI		6'b010001
 `define EXE_MTLO		6'b010011
-`define EXE_RES_MOVE	3'b011			// 移动操作指令
-`define EXE_RES_MUL 3'b101
+
 
 // 算数操作指令
 `define EXE_ADD         6'b100000
@@ -125,6 +127,19 @@
 `define EXE_MSUB  6'b000100
 `define EXE_MSUBU  6'b000101
 
+//第八章:分支指令
+`define EXE_J  6'b000010
+`define EXE_JAL  6'b000011
+`define EXE_JALR  6'b001001
+`define EXE_JR  6'b001000
+`define EXE_BEQ  6'b000100
+`define EXE_BGEZ  5'b00001
+`define EXE_BGEZAL  5'b10001
+`define EXE_BGTZ  6'b000111
+`define EXE_BLEZ  6'b000110
+`define EXE_BLTZ  5'b00000
+`define EXE_BLTZAL  5'b10000
+`define EXE_BNE  6'b000101
 
 `define EXE_AND_OP   	8'b00100100
 `define EXE_OR_OP    	8'b00100101
@@ -134,7 +149,7 @@
 `define EXE_SLL_OP  	8'b01111100 
 `define EXE_SRL_OP  	8'b00000010
 `define EXE_SRA_OP		8'b00000011
-`define EXE_RES_SHIFT 	3'b010			// 移位运算
+
 // 移动操作指令
 `define EXE_MOVN_OP		8'b00001011
 `define EXE_MOVZ_OP		8'b00001010
@@ -168,6 +183,19 @@
 `define EXE_MSUB_OP  8'b10101010
 `define EXE_MSUBU_OP  8'b10101011
 
+`define EXE_J_OP  8'b01001111
+`define EXE_JAL_OP  8'b01010000
+`define EXE_JALR_OP  8'b00001001
+`define EXE_JR_OP  8'b00001000
+`define EXE_BEQ_OP  8'b01010001
+`define EXE_BGEZ_OP  8'b01000001
+`define EXE_BGEZAL_OP  8'b01001011
+`define EXE_BGTZ_OP  8'b01010100
+`define EXE_BLEZ_OP  8'b01010011
+`define EXE_BLTZ_OP  8'b01000000
+`define EXE_BLTZAL_OP  8'b01001010
+`define EXE_BNE_OP  8'b01010010
+
 // 下面是I指令的算数操作指令的操作符
 `define EXE_ADDI        6'b001000
 `define EXE_ADDIU       6'b001001
@@ -180,3 +208,11 @@
 `define NoStop 1'b0
 `define InDelaySlot 1'b1
 `define NotInDelaySlot 1'b0
+
+//第八章新增
+`define Branch 1'b1
+`define NotBranch 1'b0
+`define InterruptAssert 1'b1
+`define InterruptNotAssert 1'b0
+`define TrapAssert 1'b1
+`define TrapNotAssert 1'b0
